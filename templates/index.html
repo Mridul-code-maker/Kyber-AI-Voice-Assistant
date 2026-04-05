@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant Core</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent-1: #66fcf1;
+            --accent-2: #8a2be2;
+            --text-main: #c5c6c7;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(102, 252, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .header {
+            margin-top: 2rem;
+            text-align: center;
+            animation: fadeInDown 1s ease;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .status-pill {
+            margin-top: 1rem;
+            background: var(--glass-bg);
+            padding: 8px 24px;
+            border-radius: 50px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            font-size: 1.1rem;
+            display: inline-block;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .mic-container {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        .orb {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent);
+            box-shadow: 
+                inset 0 0 50px rgba(102, 252, 241, 0.2),
+                0 0 30px rgba(138, 43, 226, 0.4),
+                0 0 100px rgba(102, 252, 241, 0.2);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .orb::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid rgba(102, 252, 241, 0.3);
+            animation: pulse-ring 3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        .mic-icon {
+            font-size: 4rem;
+        }
+
+        /* Glassmorphism Chat Log */
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 35vh;
+            background: var(--glass-bg);
+            border-top: 1px solid var(--glass-border);
+            border-radius: 30px 30px 0 0;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+            animation: fadeInUp 1s ease 0.5s both;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: rgba(102, 252, 241, 0.3);
+            border-radius: 4px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 1rem;
+            line-height: 1.4;
+            opacity: 0;
+            animation: slideIn 0.4s ease forwards;
+        }
+
+        .msg-user {
+            background: rgba(102, 252, 241, 0.1);
+            border: 1px solid rgba(102, 252, 241, 0.3);
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+            color: #fff;
+        }
+
+        .msg-ai {
+            background: rgba(138, 43, 226, 0.1);
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            color: #fff;
+        }
+        
+        .msg-time {
+            font-size: 0.7rem;
+            opacity: 0.5;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .listening-active {
+            box-shadow: 
+                inset 0 0 50px rgba(102, 252, 241, 0.5),
+                0 0 50px rgba(102, 252, 241, 0.8),
+                0 0 150px rgba(102, 252, 241, 0.4);
+        }
+        .listening-active::after {
+            animation: pulse-ring 1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>NOVA AI CORE</h1>
+        <div style="margin-top: 10px;">
+            <label style="color:#fff;">Current User Context (RLS): </label>
+            <select id="user-role" onchange="switchUser()" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid var(--accent-1); padding: 5px; border-radius: 5px;">
+                <option value="admin">Admin Profile</option>
+                <option value="guest">Guest Profile</option>
+            </select>
+        </div>
+        <div class="status-pill" id="status-display">Initializing Core...</div>
+    </div>
+
+    <div class="mic-container">
+        <div class="orb" id="mic-orb">
+            <div class="mic-icon">🎤</div>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chat-log">
+        <!-- Messages will be injected here -->
+    </div>
+
+    <script>
+        const statusDisplay = document.getElementById('status-display');
+        const orb = document.getElementById('mic-orb');
+        const chatLog = document.getElementById('chat-log');
+        const userRoleSelect = document.getElementById('user-role');
+        let lastHistoryLength = 0;
+        let currentUserVisual = "admin";
+
+        function switchUser() {
+            const newRole = userRoleSelect.value;
+            fetch('/api/set_user', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: newRole})
+            }).then(() => {
+                chatLog.innerHTML = ""; // Clear chat so RLS pulls only the new user's chat
+                lastHistoryLength = 0;
+                currentUserVisual = newRole;
+                updateUI();
+            });
+        }
+
+        function updateUI() {
+            fetch('/api/status')
+                .then(res => res.json())
+                .then(data => {
+                    statusDisplay.innerText = data.status;
+                    
+                    if(data.status.includes("Listening") || data.status.includes("Thinking")) {
+                        orb.classList.add("listening-active");
+                    } else {
+                        orb.classList.remove("listening-active");
+                    }
+
+                    if (data.history && data.history.length > 0) {
+                        const chronHistory = [...data.history].reverse();
+                        
+                        if (chronHistory.length !== lastHistoryLength || lastHistoryLength === 0) {
+                            chatLog.innerHTML = "";
+                            chronHistory.forEach(msg => {
+                                chatLog.innerHTML += `
+                                    <div class="message msg-user">
+                                        <div><strong>You:</strong> <br>\${msg.user}</div>
+                                        <div class="msg-time">\${msg.time}</div>
+                                    </div>
+                                `;
+                                chatLog.innerHTML += `
+                                    <div class="message msg-ai">
+                                        <div><strong>Nova AI:</strong> <br>\${msg.ai}</div>
+                                        <div class="msg-time">\${msg.time}</div>
+                                    </div>
+                                `;
+                            });
+                            chatLog.scrollTop = chatLog.scrollHeight;
+                            lastHistoryLength = chronHistory.length;
+                        }
+                    }
+                })
+                .catch(err => {
+                    statusDisplay.innerText = "System Offline (Backend Not Running)";
+                    statusDisplay.style.color = "#ff4c4c";
+                });
+        }
+
+        setInterval(updateUI, 1500);
+        updateUI();
+    </script>
+</body>
+</html>

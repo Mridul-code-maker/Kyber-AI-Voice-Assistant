@@ -1,0 +1,11 @@
+Flask
+SpeechRecognition
+pyttsx3
+pyaudio
+psutil
+google-generativeai
+requests
+pillow
+opencv-python
+python-dotenv
+groq
