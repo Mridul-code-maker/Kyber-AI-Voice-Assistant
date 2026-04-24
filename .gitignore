@@ -6,3 +6,7 @@ __pycache__/
 *.db
 venv/
 env/
+.venv/
+assistant.log
+embeddings.pkl
+logs/

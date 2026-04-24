@@ -1,24 +1,60 @@
-# Nova - Database-Driven AI Voice Assistant
+# Kyber AI Assistant
 
-Nova is an advanced AI Voice Assistant featuring a stunning, vibrant Glassmorphism Web interface. It uniquely bridges Artificial Intelligence with core Database Management Systems (DBMS) engineering, including implementations of Row Level Security (RLS).
+Kyber is a high-performance, local-first Windows voice assistant. It features voice biometric authentication, persistent long-term memory, an Ollama-backed AI brain, and camera-driven gesture/virtual mouse controls.
 
-## Key Features
-- **Lightning Fast AI Logic**: Powered by Groq (LLaMA-3) for instantaneous voice conversation processing.
-- **Glassmorphism Web Dashboard**: A dynamic, animated frontend built securely on a Flask web server.
-- **Local Voice Engine**: Uses Python's SpeechRecognition to listen, and pyttsx3 to speak back out loud.
-- **Full DBMS Integration (SQLite)**: Logs all conversations, commands, and saves unique facts to the database.
-- **Row Level Security (RLS) Simulation**: Strict multi-user context enforcement at the database level. Switch between Admin and Guest profiles in the UI to demonstrate how the DBMS physically walls off data access!
+## ✨ Key Features
+- **Local AI (Ollama)**: 100% private conversations using the `gemma2` model.
+- **Offline Speech-to-Text**: Powered by `faster-whisper` for near-instant transcription.
+- **Voice Biometrics**: Identifies speakers (Admin vs. Guests) using speaker embeddings.
+- **Persistent Memory**: Stores conversational context and user-specific facts in a local SQLite database.
+- **Glassmorphism Overlay**: A sleek, always-on-top `tkinter` visualizer for assistant states.
+- **Vision Controls**: Hand gesture shortcuts and a virtual mouse powered by MediaPipe.
 
-## Developer Setup Instructions
-1. Clone this repository to your local machine.
-2. Create a `.env` file in the root directory and add your Groq API key: 
-   `GROQ_API_KEY=your_key_here`
-3. Install all the required Python libraries:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Start the Application Server:
-   ```bash
-   python app.py
-   ```
-5. Open your web browser and navigate to `http://localhost:5000`.
+## 📂 Project Structure
+- `app.py`: Main entry point (Flask & WebSocket server).
+- `ai_brain.py`: Local Ollama integration and stream processing.
+- `speech_engine.py`: Handles TTS and STT (Whisper & pyttsx3).
+- `gesture_controller.py`: Background camera processing for hand signs.
+- `orb_overlay.py`: Visual state representation (frosted-glass pill).
+- `core/`: Assistant logic and command routing.
+- `db/`: Database schema and persistent storage logic.
+- `auth/`: Voice authentication and user registration.
+
+## 🚀 Developer Setup
+
+### 1. Prerequisites
+- **Python 3.10+**
+- **Ollama**: [Download Ollama](https://ollama.com/) and run `ollama pull gemma2`.
+- **FFmpeg**: Required for audio processing.
+
+### 2. Installation
+```bash
+# Clone the repository
+git clone <repository-url>
+cd kyber-ai-assistant
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 3. Configuration
+Create a `.env` file in the root directory to customize settings (optional):
+```env
+STT_ENGINE=faster-whisper
+WHISPER_MODEL_SIZE=base.en
+```
+
+### 4. Running Kyber
+```bash
+python app.py
+```
+- The **Orb Overlay** will appear at the bottom of your screen.
+- Access the **Web Dashboard** at `http://localhost:5000`.
+
+## 🛠️ Commands
+- "Kyber, open YouTube and play [video]"
+- "Kyber, remember that my favorite color is blue"
+- "Kyber, what is my favorite color?"
+- "Kyber, enable virtual mouse"
+- "Kyber, enable gesture control"
+

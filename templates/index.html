@@ -3,292 +3,319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Assistant Core</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <title>Kyber — AI Voice Assistant</title>
     <style>
-        :root {
-            --bg-color: #0b0c10;
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent-1: #66fcf1;
-            --accent-2: #8a2be2;
-            --text-main: #c5c6c7;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Outfit', sans-serif;
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background: #0a0a0f; min-height: 100vh; overflow: hidden; color: #e6e6e6; }
+
+        .user-badge {
+            position: fixed; top: 14px; right: 14px; font-size: 12px; text-transform: uppercase;
+            letter-spacing: 0.08em; padding: 8px 12px; border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.06);
         }
 
-        body {
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 15% 50%, rgba(102, 252, 241, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 85% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 50%);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow: hidden;
+        /* ── Brain Indicator ─────────────────────────────── */
+        .brain-badge {
+            position: fixed; top: 14px; left: 14px; font-size: 12px;
+            padding: 8px 14px; border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+            transition: all 300ms ease; opacity: 0.9;
+        }
+        .brain-badge.groq {
+            border-color: rgba(0, 180, 255, 0.5);
+            color: #00b4ff;
+            text-shadow: 0 0 8px rgba(0, 180, 255, 0.4);
+        }
+        .brain-badge.gemini {
+            border-color: rgba(160, 80, 220, 0.5);
+            color: #c070ff;
+            text-shadow: 0 0 8px rgba(160, 80, 220, 0.4);
+            animation: geminiPulse 2s ease-in-out infinite;
+        }
+        @keyframes geminiPulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(160, 80, 220, 0.2); }
+            50% { box-shadow: 0 0 20px rgba(160, 80, 220, 0.6); }
         }
 
-        .header {
-            margin-top: 2rem;
-            text-align: center;
-            animation: fadeInDown 1s ease;
+        /* ── Mic Warning ─────────────────────────────────── */
+        .mic-warning {
+            position: fixed; top: 50px; left: 14px; font-size: 11px;
+            padding: 6px 10px; border-radius: 8px;
+            background: rgba(255, 50, 50, 0.15); border: 1px solid rgba(255, 50, 50, 0.4);
+            color: #ff5555; display: none;
         }
+        .mic-warning.visible { display: block; }
 
-        .header h1 {
-            font-size: 3rem;
-            background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+        /* ── Quota Bars ──────────────────────────────────── */
+        .quota-panel {
+            position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 12px; font-size: 11px;
         }
-
-        .status-pill {
-            margin-top: 1rem;
-            background: var(--glass-bg);
-            padding: 8px 24px;
-            border-radius: 50px;
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(10px);
-            font-size: 1.1rem;
-            display: inline-block;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
+        .quota-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-radius: 8px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
         }
-
-        .mic-container {
-            flex-grow: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
+        .quota-bar-wrap {
+            width: 60px; height: 6px; border-radius: 3px;
+            background: rgba(255,255,255,0.1); overflow: hidden;
         }
+        .quota-bar {
+            height: 100%; border-radius: 3px; transition: width 500ms ease, background 300ms ease;
+        }
+        .quota-bar.green { background: #2ee673; }
+        .quota-bar.yellow { background: #ffcc00; }
+        .quota-bar.red { background: #ff4444; }
 
+        /* ── Response Pill ────────────────────────────────── */
+        .response-pill {
+            position: fixed; left: 50%; bottom: 112px; transform: translateX(-50%);
+            max-width: min(90vw, 520px); padding: 10px 14px; border-radius: 999px;
+            background: rgba(24, 24, 31, 0.92); border: 1px solid rgba(255,255,255,0.12);
+            font-size: 13px; text-align: center; opacity: 0; transition: opacity 250ms ease;
+        }
+        .response-pill.visible { opacity: 1; }
+
+        /* ── Orb ─────────────────────────────────────────── */
+        .orb-wrap { position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; }
         .orb {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent);
-            box-shadow: 
-                inset 0 0 50px rgba(102, 252, 241, 0.2),
-                0 0 30px rgba(138, 43, 226, 0.4),
-                0 0 100px rgba(102, 252, 241, 0.2);
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            animation: float 6s ease-in-out infinite;
+            width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
+            background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.38), rgba(120,120,150,0.2) 45%, rgba(35,35,40,0.9));
+            box-shadow: 0 0 24px rgba(120, 120, 150, 0.32), inset 0 0 16px rgba(255,255,255,0.18);
+            animation: pulseIdle 2.6s ease-in-out infinite;
+            transition: width 220ms ease, height 220ms ease, box-shadow 220ms ease;
         }
+        .orb.state-listening {
+            width: 80px; height: 80px;
+            box-shadow: 0 0 42px rgba(0, 245, 255, 0.95), inset 0 0 20px rgba(0, 245, 255, 0.35);
+            animation: pulseListening 1s ease-in-out infinite;
+        }
+        .orb.state-thinking {
+            width: 70px; height: 70px;
+            background: conic-gradient(from 0deg, #ff9d00, #ffcb6b, #ff7a18, #ff9d00);
+            box-shadow: 0 0 30px rgba(255, 150, 0, 0.7);
+            animation: spinThinking 1.2s linear infinite;
+        }
+        .orb.state-thinking.brain-gemini {
+            background: conic-gradient(from 0deg, #8b5cf6, #c084fc, #a855f7, #8b5cf6);
+            box-shadow: 0 0 30px rgba(160, 80, 220, 0.7);
+        }
+        .orb.state-speaking {
+            width: 70px; height: 70px;
+            box-shadow: 0 0 38px rgba(46, 230, 115, 0.85), inset 0 0 20px rgba(46,230,115,0.28);
+            animation: pulseSpeaking 1s ease-in-out infinite;
+        }
+        .orb.state-speaking::before, .orb.state-speaking::after {
+            content: ""; position: absolute; left: 50%; top: 50%; border-radius: 50%;
+            border: 2px solid rgba(46,230,115,0.55); transform: translate(-50%, -50%);
+            animation: waveRing 1.3s linear infinite;
+        }
+        .orb.state-speaking::after { animation-delay: 650ms; }
 
-        .orb::after {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 2px solid rgba(102, 252, 241, 0.3);
-            animation: pulse-ring 3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        /* ── History Panel ────────────────────────────────── */
+        .history-panel {
+            position: fixed; left: 50%; transform: translateX(-50%);
+            width: min(900px, 92vw); height: 46vh; bottom: -52vh;
+            background: rgba(19, 19, 24, 0.95); border: 1px solid rgba(255,255,255,0.12);
+            border-top-left-radius: 18px; border-top-right-radius: 18px; padding: 14px;
+            transition: bottom 280ms ease; overflow-y: auto;
         }
+        .history-panel.open { bottom: 0; }
+        .history-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+        .history-controls button {
+            border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; font-size: 12px;
+            background: rgba(255,255,255,0.06); color: #fff; padding: 7px 10px; cursor: pointer;
+        }
+        .msg { margin-bottom: 10px; padding: 10px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
+        .user-msg { border: 1px solid rgba(0, 245, 255, 0.28); background: rgba(0,245,255,0.08); }
+        .ai-msg { border: 1px solid rgba(46,230,115,0.24); background: rgba(46,230,115,0.08); }
+        .meta { margin-top: 6px; opacity: 0.6; font-size: 11px; }
 
-        .mic-icon {
-            font-size: 4rem;
-        }
-
-        /* Glassmorphism Chat Log */
-        .chat-container {
-            width: 90%;
-            max-width: 800px;
-            height: 35vh;
-            background: var(--glass-bg);
-            border-top: 1px solid var(--glass-border);
-            border-radius: 30px 30px 0 0;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 2rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
-            animation: fadeInUp 1s ease 0.5s both;
-        }
-
-        .chat-container::-webkit-scrollbar {
-            width: 8px;
-        }
-        .chat-container::-webkit-scrollbar-thumb {
-            background: rgba(102, 252, 241, 0.3);
-            border-radius: 4px;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 12px 20px;
-            border-radius: 20px;
-            font-size: 1rem;
-            line-height: 1.4;
-            opacity: 0;
-            animation: slideIn 0.4s ease forwards;
-        }
-
-        .msg-user {
-            background: rgba(102, 252, 241, 0.1);
-            border: 1px solid rgba(102, 252, 241, 0.3);
-            align-self: flex-end;
-            border-bottom-right-radius: 5px;
-            color: #fff;
-        }
-
-        .msg-ai {
-            background: rgba(138, 43, 226, 0.1);
-            border: 1px solid rgba(138, 43, 226, 0.3);
-            align-self: flex-start;
-            border-bottom-left-radius: 5px;
-            color: #fff;
-        }
-        
-        .msg-time {
-            font-size: 0.7rem;
-            opacity: 0.5;
-            margin-top: 5px;
-            text-align: right;
-        }
-
-        /* Animations */
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
-        }
-
-        @keyframes pulse-ring {
-            0% { transform: scale(0.9); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(50px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        
-        .listening-active {
-            box-shadow: 
-                inset 0 0 50px rgba(102, 252, 241, 0.5),
-                0 0 50px rgba(102, 252, 241, 0.8),
-                0 0 150px rgba(102, 252, 241, 0.4);
-        }
-        .listening-active::after {
-            animation: pulse-ring 1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        /* ── Animations ──────────────────────────────────── */
+        @keyframes pulseIdle { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes pulseListening { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+        @keyframes spinThinking { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulseSpeaking { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        @keyframes waveRing {
+            0% { width: 70px; height: 70px; opacity: 0.8; }
+            100% { width: 110px; height: 110px; opacity: 0; }
         }
     </style>
 </head>
 <body>
+    <div class="user-badge" id="user-badge">guest</div>
+    <div class="brain-badge groq" id="brain-badge">⚡ Groq</div>
+    <div class="mic-warning" id="mic-warning">🎤 Microphone unavailable</div>
 
-    <div class="header">
-        <h1>NOVA AI CORE</h1>
-        <div style="margin-top: 10px;">
-            <label style="color:#fff;">Current User Context (RLS): </label>
-            <select id="user-role" onchange="switchUser()" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid var(--accent-1); padding: 5px; border-radius: 5px;">
-                <option value="admin">Admin Profile</option>
-                <option value="guest">Guest Profile</option>
-            </select>
+    <div class="quota-panel" id="quota-panel">
+        <div class="quota-item">
+            <span>Groq</span>
+            <div class="quota-bar-wrap"><div class="quota-bar green" id="groq-bar" style="width:0%"></div></div>
+            <span id="groq-pct">0%</span>
         </div>
-        <div class="status-pill" id="status-display">Initializing Core...</div>
-    </div>
-
-    <div class="mic-container">
-        <div class="orb" id="mic-orb">
-            <div class="mic-icon">🎤</div>
+        <div class="quota-item">
+            <span>Gemini</span>
+            <div class="quota-bar-wrap"><div class="quota-bar green" id="gemini-bar" style="width:0%"></div></div>
+            <span id="gemini-pct">0%</span>
         </div>
     </div>
 
-    <div class="chat-container" id="chat-log">
-        <!-- Messages will be injected here -->
+    <div class="response-pill" id="response-pill"></div>
+    <div class="history-panel" id="history-panel">
+        <div class="history-controls">
+            <button onclick="switchUser('admin')">Admin</button>
+            <button onclick="switchUser('guest')">Guest</button>
+        </div>
+        <div id="history-log"></div>
+    </div>
+    <div class="orb-wrap">
+        <button class="orb state-idle" id="orb" onclick="toggleHistory()"></button>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        const statusDisplay = document.getElementById('status-display');
-        const orb = document.getElementById('mic-orb');
-        const chatLog = document.getElementById('chat-log');
-        const userRoleSelect = document.getElementById('user-role');
-        let lastHistoryLength = 0;
-        let currentUserVisual = "admin";
+        const orb = document.getElementById("orb");
+        const userBadge = document.getElementById("user-badge");
+        const brainBadge = document.getElementById("brain-badge");
+        const micWarning = document.getElementById("mic-warning");
+        const responsePill = document.getElementById("response-pill");
+        const historyPanel = document.getElementById("history-panel");
+        const historyLog = document.getElementById("history-log");
+        const groqBar = document.getElementById("groq-bar");
+        const groqPct = document.getElementById("groq-pct");
+        const geminiBar = document.getElementById("gemini-bar");
+        const geminiPct = document.getElementById("gemini-pct");
 
-        function switchUser() {
-            const newRole = userRoleSelect.value;
-            fetch('/api/set_user', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({user_id: newRole})
-            }).then(() => {
-                chatLog.innerHTML = ""; // Clear chat so RLS pulls only the new user's chat
-                lastHistoryLength = 0;
-                currentUserVisual = newRole;
-                updateUI();
-            });
+        let lastResponse = "";
+        let activeState = "idle";
+        let currentBrain = "groq";
+        let hidePillTimer = null;
+
+        // ── WebSocket Connection ────────────────────────────
+        const socket = io();
+
+        socket.on("status_update", function(data) {
+            updateUI(data);
+        });
+
+        socket.on("connect_error", function() {
+            // Fall back to polling if WebSocket fails
+            console.warn("WebSocket connection failed, falling back to polling.");
+        });
+
+        function updateUI(data) {
+            // State
+            const state = data.state || "idle";
+            const brain = data.current_brain || "groq";
+            setOrbState(state, brain);
+
+            // User
+            userBadge.textContent = data.user || "guest";
+
+            // Brain badge
+            if (brain !== currentBrain || brainBadge.textContent === "") {
+                currentBrain = brain;
+                brainBadge.className = "brain-badge " + brain;
+                brainBadge.textContent = brain === "groq" ? "⚡ Groq" : "✨ Gemini";
+            }
+
+            // Mic warning
+            if (data.mic_unavailable) {
+                micWarning.classList.add("visible");
+            } else {
+                micWarning.classList.remove("visible");
+            }
+
+            // Response
+            showResponse(data.last_response || "");
         }
 
-        function updateUI() {
-            fetch('/api/status')
+        function setOrbState(state, brain) {
+            activeState = state || "idle";
+            let cls = "orb state-" + activeState;
+            if (activeState === "thinking" && brain === "gemini") {
+                cls += " brain-gemini";
+            }
+            orb.className = cls;
+        }
+
+        function showResponse(text) {
+            if (!text || text === lastResponse) return;
+            lastResponse = text;
+            responsePill.textContent = text;
+            responsePill.classList.add("visible");
+            if (hidePillTimer) clearTimeout(hidePillTimer);
+            hidePillTimer = setTimeout(() => responsePill.classList.remove("visible"), 5000);
+        }
+
+        function toggleHistory() {
+            if (activeState !== "idle") return;
+            historyPanel.classList.toggle("open");
+            if (historyPanel.classList.contains("open")) {
+                fetchHistory();
+            }
+        }
+
+        function switchUser(user) {
+            fetch("/api/set_user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: user })
+            }).then(fetchHistory);
+        }
+
+        function fetchHistory() {
+            fetch("/api/status")
                 .then(res => res.json())
                 .then(data => {
-                    statusDisplay.innerText = data.status;
-                    
-                    if(data.status.includes("Listening") || data.status.includes("Thinking")) {
-                        orb.classList.add("listening-active");
-                    } else {
-                        orb.classList.remove("listening-active");
-                    }
-
-                    if (data.history && data.history.length > 0) {
-                        const chronHistory = [...data.history].reverse();
-                        
-                        if (chronHistory.length !== lastHistoryLength || lastHistoryLength === 0) {
-                            chatLog.innerHTML = "";
-                            chronHistory.forEach(msg => {
-                                chatLog.innerHTML += `
-                                    <div class="message msg-user">
-                                        <div><strong>You:</strong> <br>\${msg.user}</div>
-                                        <div class="msg-time">\${msg.time}</div>
-                                    </div>
-                                `;
-                                chatLog.innerHTML += `
-                                    <div class="message msg-ai">
-                                        <div><strong>Nova AI:</strong> <br>\${msg.ai}</div>
-                                        <div class="msg-time">\${msg.time}</div>
-                                    </div>
-                                `;
-                            });
-                            chatLog.scrollTop = chatLog.scrollHeight;
-                            lastHistoryLength = chronHistory.length;
-                        }
-                    }
-                })
-                .catch(err => {
-                    statusDisplay.innerText = "System Offline (Backend Not Running)";
-                    statusDisplay.style.color = "#ff4c4c";
+                    userBadge.textContent = data.user || "guest";
+                    const items = data.history || [];
+                    historyLog.innerHTML = "";
+                    [...items].reverse().forEach((row) => {
+                        historyLog.innerHTML += `<div class="msg user-msg"><strong>You:</strong> ${row.user}<div class="meta">${row.time}</div></div>`;
+                        historyLog.innerHTML += `<div class="msg ai-msg"><strong>Kyber:</strong> ${row.ai}<div class="meta">${row.time}</div></div>`;
+                    });
                 });
         }
 
-        setInterval(updateUI, 1500);
-        updateUI();
+        // ── Quota Polling ───────────────────────────────────
+        function fetchQuota() {
+            fetch("/api/quota")
+                .then(res => res.json())
+                .then(data => {
+                    if (data.groq) {
+                        const g = data.groq;
+                        groqBar.style.width = g.rpd_percent + "%";
+                        groqBar.className = "quota-bar " + g.level;
+                        groqPct.textContent = g.rpd_percent + "%";
+                    }
+                    if (data.gemini) {
+                        const m = data.gemini;
+                        geminiBar.style.width = m.rpd_percent + "%";
+                        geminiBar.className = "quota-bar " + m.level;
+                        geminiPct.textContent = m.rpd_percent + "%";
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // ── Fallback Polling (in case WebSocket is down) ────
+        function pollStatus() {
+            fetch("/status")
+                .then(res => res.json())
+                .then(data => updateUI(data))
+                .catch(() => {
+                    setOrbState("idle", "groq");
+                    userBadge.textContent = "offline";
+                });
+        }
+
+        // Poll as fallback, but at a slower rate since WebSocket is primary
+        setInterval(pollStatus, 2000);
+        setInterval(fetchQuota, 5000);
+        setInterval(() => { if (historyPanel.classList.contains("open")) fetchHistory(); }, 3000);
+        pollStatus();
+        fetchQuota();
     </script>
 </body>
 </html>
