@@ -30,7 +30,7 @@ Kyber is a high-performance, local-first Windows voice assistant. It features vo
 ### 2. Installation
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/Mridul-code-maker/Kyber-AI-Voice-Assistant
 cd kyber-ai-assistant
 
 # Install dependencies
