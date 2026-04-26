@@ -265,9 +265,9 @@ def _hand_tracking_worker():
         mp_hands = mp.solutions.hands
         with mp_hands.Hands(
             max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.65,
-            model_complexity=0,
+            min_detection_confidence=0.6,
+            min_tracking_confidence=0.6,
+            model_complexity=1,
         ) as hands:
             while not _stop_event.is_set():
                 ok, frame = cap.read()
