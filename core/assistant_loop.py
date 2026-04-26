@@ -1,5 +1,5 @@
 """
-assistant_loop.py — Core orchestrator for the Kyber AI Assistant.
+assistant_loop.py — Core orchestrator for the Kira AI Assistant.
 Manages the lifecycle of listening, authenticating, thinking, and speaking.
 """
 
@@ -148,7 +148,17 @@ def run_assistant_loop():
                 continue
 
             # -- Wake word gate (BEFORE authentication) -----------
-            if normalize_command(WAKE_WORD) not in normalize_command(heard):
+            logger.info("Heard: %s", heard)
+            heard_normalized = normalize_command(heard)
+            # Expanded wake variants to handle common Whisper misinterpretations
+            wake_variants = {
+                normalize_command(WAKE_WORD), 
+                "kira", "keera", "kyra", "clear", "killer", "careful", "keira",
+                "ira", "era", "hera", "hero", "kera", "kara", "kiro", "kyla", 
+                "kayla", "keara", "kierra", "ciara", "heera", "eyra"
+            }
+            
+            if not any(variant in heard_normalized for variant in wake_variants):
                 try:
                     os.remove(audio_path)
                 except OSError:

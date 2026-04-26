@@ -1,5 +1,5 @@
 """
-app.py — Main application entry point for Kyber AI Assistant.
+app.py — Main application entry point for Kira AI Assistant.
 This file initializes the Flask server, WebSocket communications, and launches background assistant loops.
 """
 
@@ -69,6 +69,19 @@ def get_status():
     })
 
 
+@app.route("/api/quota", methods=["GET"])
+def get_quota():
+    """
+    Provides mock quota information for the local Ollama brain.
+    Since Kira is 100% local, this always returns 'unlimited' metrics.
+    """
+    return jsonify({
+        "groq": {"rpd_percent": 0, "level": "green"},
+        "gemini": {"rpd_percent": 0, "level": "green"},
+        "ollama": {"status": "active", "model": "gemma2"}
+    })
+
+
 @app.route("/status", methods=["GET"])
 def status():
     """Legacy endpoint for simple status snapshots."""
@@ -126,7 +139,6 @@ def _shutdown_overlay():
         finally:
             overlay_process = None
 
-
 def _handle_shutdown_signal(signum, frame):
     """Signal handler for OS-level termination requests."""
     logger.info("Shutdown signal received: %s", signum)
@@ -157,6 +169,10 @@ if __name__ == "__main__":
     # Launch core assistant and WebSocket status threads
     threading.Thread(target=run_assistant_loop, daemon=True).start()
     threading.Thread(target=_status_emitter, daemon=True, name="ws-emitter").start()
+
+    # Spoken confirmation that the assistant is alive
+    time.sleep(2)
+    speech_engine.speak("Kira is online and ready.")
 
     # Gesture controller will be started via voice command to save resources.
 

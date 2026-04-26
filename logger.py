@@ -1,7 +1,7 @@
 """
-logger.py — Centralized logging for the Kyber AI Assistant.
+logger.py — Centralized logging for the Kira AI Assistant.
 
-Logs API calls, errors, fallbacks, and gestures to logs/kyber.log
+Logs API calls, errors, fallbacks, and gestures to logs/kira.log
 with timestamps and severity levels.
 """
 

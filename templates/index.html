@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kyber — AI Voice Assistant</title>
+    <title>Kira — AI Voice Assistant</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background: #0a0a0f; min-height: 100vh; overflow: hidden; color: #e6e6e6; }
@@ -149,14 +149,9 @@
 
     <div class="quota-panel" id="quota-panel">
         <div class="quota-item">
-            <span>Groq</span>
-            <div class="quota-bar-wrap"><div class="quota-bar green" id="groq-bar" style="width:0%"></div></div>
-            <span id="groq-pct">0%</span>
-        </div>
-        <div class="quota-item">
-            <span>Gemini</span>
-            <div class="quota-bar-wrap"><div class="quota-bar green" id="gemini-bar" style="width:0%"></div></div>
-            <span id="gemini-pct">0%</span>
+            <span>Local AI</span>
+            <div class="quota-bar-wrap"><div class="quota-bar green" id="ollama-bar" style="width:100%"></div></div>
+            <span id="ollama-status">Active</span>
         </div>
     </div>
 
@@ -181,14 +176,12 @@
         const responsePill = document.getElementById("response-pill");
         const historyPanel = document.getElementById("history-panel");
         const historyLog = document.getElementById("history-log");
-        const groqBar = document.getElementById("groq-bar");
-        const groqPct = document.getElementById("groq-pct");
-        const geminiBar = document.getElementById("gemini-bar");
-        const geminiPct = document.getElementById("gemini-pct");
+        const ollamaBar = document.getElementById("ollama-bar");
+        const ollamaStatus = document.getElementById("ollama-status");
 
         let lastResponse = "";
         let activeState = "idle";
-        let currentBrain = "groq";
+        let currentBrain = "ollama";
         let hidePillTimer = null;
 
         // ── WebSocket Connection ────────────────────────────
@@ -206,7 +199,7 @@
         function updateUI(data) {
             // State
             const state = data.state || "idle";
-            const brain = data.current_brain || "groq";
+            const brain = data.current_brain || "ollama";
             setOrbState(state, brain);
 
             // User
@@ -216,7 +209,7 @@
             if (brain !== currentBrain || brainBadge.textContent === "") {
                 currentBrain = brain;
                 brainBadge.className = "brain-badge " + brain;
-                brainBadge.textContent = brain === "groq" ? "⚡ Groq" : "✨ Gemini";
+                brainBadge.textContent = "✨ Local";
             }
 
             // Mic warning
@@ -233,8 +226,8 @@
         function setOrbState(state, brain) {
             activeState = state || "idle";
             let cls = "orb state-" + activeState;
-            if (activeState === "thinking" && brain === "gemini") {
-                cls += " brain-gemini";
+            if (activeState === "thinking") {
+                cls += " brain-gemini"; // Reuse gemini styles for local purple glow
             }
             orb.className = cls;
         }
@@ -273,7 +266,7 @@
                     historyLog.innerHTML = "";
                     [...items].reverse().forEach((row) => {
                         historyLog.innerHTML += `<div class="msg user-msg"><strong>You:</strong> ${row.user}<div class="meta">${row.time}</div></div>`;
-                        historyLog.innerHTML += `<div class="msg ai-msg"><strong>Kyber:</strong> ${row.ai}<div class="meta">${row.time}</div></div>`;
+                        historyLog.innerHTML += `<div class="msg ai-msg"><strong>Kira:</strong> ${row.ai}<div class="meta">${row.time}</div></div>`;
                     });
                 });
         }
@@ -283,20 +276,17 @@
             fetch("/api/quota")
                 .then(res => res.json())
                 .then(data => {
-                    if (data.groq) {
-                        const g = data.groq;
-                        groqBar.style.width = g.rpd_percent + "%";
-                        groqBar.className = "quota-bar " + g.level;
-                        groqPct.textContent = g.rpd_percent + "%";
-                    }
-                    if (data.gemini) {
-                        const m = data.gemini;
-                        geminiBar.style.width = m.rpd_percent + "%";
-                        geminiBar.className = "quota-bar " + m.level;
-                        geminiPct.textContent = m.rpd_percent + "%";
+                    if (data.ollama) {
+                        ollamaStatus.textContent = "Active";
+                        ollamaBar.style.width = "100%";
+                        ollamaBar.className = "quota-bar green";
                     }
                 })
-                .catch(() => {});
+                .catch(() => {
+                    ollamaStatus.textContent = "Offline";
+                    ollamaBar.style.width = "0%";
+                    ollamaBar.className = "quota-bar red";
+                });
         }
 
         // ── Fallback Polling (in case WebSocket is down) ────

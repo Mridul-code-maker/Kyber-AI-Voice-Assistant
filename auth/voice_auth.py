@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover
     VoiceEncoder = None
     preprocess_wav = None
 
-encoder = VoiceEncoder() if VoiceEncoder else None
+encoder = VoiceEncoder(device="cuda") if VoiceEncoder else None
 
 
 def get_embedding(audio_path: str) -> np.ndarray:

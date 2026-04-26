@@ -17,6 +17,7 @@ from config import (
     WHISPER_DEVICE,
     WHISPER_LANGUAGE,
     WHISPER_MODEL_SIZE,
+    WAKE_WORD,
 )
 
 logger = logging.getLogger(__name__)
@@ -254,23 +255,40 @@ def _get_whisper_model():
             )
             return None
 
-        try:
-            logger.info(
-                "Loading faster-whisper model '%s' on %s (%s).",
-                WHISPER_MODEL_SIZE,
-                WHISPER_DEVICE,
-                WHISPER_COMPUTE_TYPE,
-            )
-            _whisper_model = WhisperModel(
-                WHISPER_MODEL_SIZE,
-                device=WHISPER_DEVICE,
-                compute_type=WHISPER_COMPUTE_TYPE,
-                cpu_threads=WHISPER_CPU_THREADS,
-            )
-            return _whisper_model
-        except Exception:
-            logger.error("Failed to initialize faster-whisper.", exc_info=True)
-            return None
+        # Attempt to load on configured device (default CUDA), with fallback to CPU
+        devices_to_try = [WHISPER_DEVICE]
+        if WHISPER_DEVICE != "cpu":
+            devices_to_try.append("cpu")
+
+        for device in devices_to_try:
+            try:
+                compute_type = WHISPER_COMPUTE_TYPE
+                # CUDA often requires specific compute types; float32/int8 are usually safe fallbacks
+                if device == "cpu" and compute_type not in ["int8", "float32"]:
+                    compute_type = "int8"
+                
+                logger.info(
+                    "Loading faster-whisper model '%s' on %s (%s).",
+                    WHISPER_MODEL_SIZE,
+                    device,
+                    compute_type,
+                )
+                _whisper_model = WhisperModel(
+                    WHISPER_MODEL_SIZE,
+                    device=device,
+                    compute_type=compute_type,
+                    cpu_threads=WHISPER_CPU_THREADS,
+                )
+                return _whisper_model
+            except Exception as e:
+                if device == "cpu":
+                    logger.error("Failed to initialize faster-whisper even on CPU.", exc_info=True)
+                    return None
+                logger.warning(
+                    "Failed to load faster-whisper on %s. Error: %s. Falling back to CPU...",
+                    device, e
+                )
+        return None
 
 
 def _transcribe_with_whisper(audio=None, file_path=None):
@@ -303,8 +321,11 @@ def _transcribe_with_whisper(audio=None, file_path=None):
             language=WHISPER_LANGUAGE,
             beam_size=WHISPER_BEAM_SIZE,
             vad_filter=True,
+            initial_prompt=f"Kira. The assistant's name is {WAKE_WORD}. Please transcribe it as {WAKE_WORD} even if it sounds like Ira, Era, Hera, or Keira."
         )
+        # We must exhaust the generator inside the try block to catch runtime CUDA errors
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+        
         if text:
             logger.debug(
                 "Recognized locally: %s (language=%s, prob=%.2f)",
@@ -318,6 +339,20 @@ def _transcribe_with_whisper(audio=None, file_path=None):
         # STT succeeded — clear any previous degraded flag
         status_manager.set_stt_degraded(False)
         return text.lower()
+    except RuntimeError as e:
+        if "cublas" in str(e).lower() or "cudnn" in str(e).lower() or "cuda" in str(e).lower():
+            logger.error("CUDA runtime error during transcription: %s. Forcing CPU fallback.", e)
+            global _whisper_model
+            with _whisper_model_lock:
+                _whisper_model = None  # Clear cache to force reload on CPU
+            # We don't recurse here to avoid infinite loops, but the next call will use CPU.
+            # However, we can try one more time immediately.
+            return _transcribe_with_whisper(audio, file_path)
+        logger.error("Inference failed: %s", e, exc_info=True)
+        return ""
+    except Exception:
+        logger.error("Unexpected speech-to-text error during inference.", exc_info=True)
+        return ""
     finally:
         # Only clean up files we created ourselves
         if owns_file:

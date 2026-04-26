@@ -1,7 +1,7 @@
 """
-ai_brain.py — Local AI logic for Kyber using Ollama (Gemma 2).
+ai_brain.py — Local AI logic for Kira using Ollama (Gemma 2).
 
-Kyber now uses a 100% local, API-key-free implementation backed by Ollama.
+Kira now uses a 100% local, API-key-free implementation backed by Ollama.
 This module handles communication with the local Ollama API.
 """
 
@@ -9,7 +9,7 @@ import logging
 import json
 import re
 import requests
-from config import CONVERSATION_CONTEXT_TURNS
+from config import CONVERSATION_CONTEXT_TURNS, OLLAMA_NUM_GPU
 from db import db_engine
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def _build_ollama_messages(prompt, current_user):
     Constructs the message payload for Ollama, including system instructions and context history.
     """
     system_instructions = (
-        "You are Kyber, a helpful, concise AI voice assistant. "
+        "You are Kira, a helpful, concise AI voice assistant. "
         "Keep your responses short so they are easy to read aloud by a Text-to-Speech engine. "
         "Do not use markdown formatting like asterisks or hash symbols. Don't use emojis also. Be conversational."
     )
@@ -70,9 +70,12 @@ def query_local_ollama(prompt, current_user="guest"):
     messages = _build_ollama_messages(prompt, current_user)
     
     payload = {
-        "model": "gemma2",
+        "model": "gemma2:latest",
         "messages": messages,
-        "stream": False
+        "stream": False,
+        "options": {
+            "num_gpu": OLLAMA_NUM_GPU
+        }
     }
     
     try:
@@ -97,9 +100,12 @@ def query_local_ollama_stream(prompt, current_user="guest", on_chunk=None):
     messages = _build_ollama_messages(prompt, current_user)
 
     payload = {
-        "model": "gemma2",
+        "model": "gemma2:latest",
         "messages": messages,
         "stream": True,
+        "options": {
+            "num_gpu": OLLAMA_NUM_GPU
+        }
     }
 
     full_text = []
@@ -163,6 +169,6 @@ def generate_response(prompt, current_user="guest", preferred_brain="gemma2", on
     if result:
         return result
         
-    # Fallback message if Ollama service is unavailable
-    return "My local neural network is offline. Please make sure Ollama is running in the background."
+    # Fallback message if Ollama service is unavailable or overloaded
+    return "My local neural network is having trouble starting up. This usually happens if your computer is low on RAM. Please try closing other apps or restarting Ollama."
 

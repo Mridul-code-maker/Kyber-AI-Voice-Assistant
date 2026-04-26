@@ -1,5 +1,5 @@
 """
-status_manager.py — Thread-safe state orchestration for the Kyber assistant.
+status_manager.py — Thread-safe state orchestration for the Kira assistant.
 Provides a central repository for the assistant's current operational state.
 """
 
@@ -20,7 +20,7 @@ class AssistantState:
 
 class StatusManager:
     """
-    Thread-safe state manager for the Kyber assistant.
+    Thread-safe state manager for the Kira assistant.
     Coordinates state updates across multiple background threads (assistant loop, 
     gesture controller, and Flask/WebSocket server).
     

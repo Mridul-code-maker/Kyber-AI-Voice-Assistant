@@ -1,5 +1,5 @@
 """
-orb_overlay.py — Siri / Wispr Flow–style frosted-glass pill overlay for Kyber.
+orb_overlay.py — Siri / Wispr Flow–style frosted-glass pill overlay for Kira.
 
 Renders a compact orb that expands into a pill shape depending on the assistant state.
 Drawn entirely with tkinter on a transparent canvas — no heavy OpenCV dependency for the UI.
@@ -88,7 +88,7 @@ def _spring_ease(t: float) -> float:
 
 class PillOverlay:
     """
-    Handles the rendering and animation of the Kyber visual orb/pill.
+    Handles the rendering and animation of the Kira visual orb/pill.
     Synchronizes with the main assistant state via periodic HTTP polling.
     """
     def __init__(self):
@@ -115,7 +115,7 @@ class PillOverlay:
 
         # Tkinter Window Initialization
         self.root = tk.Tk()
-        self.root.title("Kyber Overlay")
+        self.root.title("Kira Overlay")
         self.root.overrideredirect(True)         # Remove window decorations (title bar, etc.)
         self.root.attributes("-topmost", True)   # Ensure it stays above other windows
         self.root.attributes("-alpha", 0.92)     # Global window transparency
@@ -167,7 +167,7 @@ class PillOverlay:
             return
         try:
             import ctypes
-            hwnd = ctypes.windll.user32.FindWindowW(None, "Kyber Overlay")
+            hwnd = ctypes.windll.user32.FindWindowW(None, "Kira Overlay")
             if not hwnd:
                 logger.warning("HWND not found for click-through.")
                 return

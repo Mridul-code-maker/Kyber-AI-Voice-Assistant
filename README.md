@@ -1,6 +1,6 @@
-# Kyber AI Assistant
+# Kira AI Assistant
 
-Kyber is a high-performance, local-first Windows voice assistant. It features voice biometric authentication, persistent long-term memory, an Ollama-backed AI brain, and camera-driven gesture/virtual mouse controls.
+Kira is a high-performance, local-first Windows voice assistant. It features voice biometric authentication, persistent long-term memory, an Ollama-backed AI brain, and camera-driven gesture/virtual mouse controls.
 
 ## ✨ Key Features
 - **Local AI (Ollama)**: 100% private conversations using the `gemma2` model.
@@ -31,7 +31,7 @@ Kyber is a high-performance, local-first Windows voice assistant. It features vo
 ```bash
 # Clone the repository
 git clone https://github.com/Mridul-code-maker/Kyber-AI-Voice-Assistant
-cd kyber-ai-assistant
+cd kira-ai-assistant
 
 # Install dependencies
 pip install -r requirements.txt
@@ -44,7 +44,7 @@ STT_ENGINE=faster-whisper
 WHISPER_MODEL_SIZE=base.en
 ```
 
-### 4. Running Kyber
+### 4. Running Kira
 ```bash
 python app.py
 ```
@@ -52,9 +52,9 @@ python app.py
 - Access the **Web Dashboard** at `http://localhost:5000`.
 
 ## 🛠️ Commands
-- "Kyber, open YouTube and play [video]"
-- "Kyber, remember that my favorite color is blue"
-- "Kyber, what is my favorite color?"
-- "Kyber, enable virtual mouse"
-- "Kyber, enable gesture control"
+- "Kira, open YouTube and play [video]"
+- "Kira, remember that my favorite color is blue"
+- "Kira, what is my favorite color?"
+- "Kira, enable virtual mouse"
+- "Kira, enable gesture control"
 
