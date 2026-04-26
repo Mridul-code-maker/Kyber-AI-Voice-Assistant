@@ -37,6 +37,7 @@ import threading
 import time
 
 import cv2
+import numpy as np
 import mediapipe as mp
 import pyautogui
 
@@ -78,6 +79,7 @@ def _acquire_camera(stop_event: threading.Event, max_retries: int = 3):
       - Try the configured index first, then fallback indices.
       - For each index, try DirectShow (most reliable on Windows), then default.
       - Verify each candidate with an actual frame read.
+      - Verify the camera is not a "dummy" or "virtual" static image using variance and inter-frame noise.
       - Retry the full cycle with exponential backoff.
     """
     indices = [VIRTUAL_MOUSE_CAMERA_INDEX]
@@ -108,13 +110,36 @@ def _acquire_camera(stop_event: threading.Event, max_retries: int = 3):
                     continue
 
                 # isOpened() is unreliable on Windows — verify with a real frame
-                ok, frame = cap.read()
-                if not ok or frame is None:
+                # Warm up slightly to let the camera start streaming
+                for _ in range(5):
+                    cap.read()
+                    time.sleep(0.02)
+                
+                ok1, frame1 = cap.read()
+                time.sleep(0.05)
+                ok2, frame2 = cap.read()
+                
+                if not ok1 or not ok2 or frame1 is None or frame2 is None:
                     logger.warning("Camera(%d, %s) opened but read() failed — phantom device (attempt %d).", idx, name, attempt)
                     cap.release()
                     continue
 
-                logger.info("Camera VERIFIED: index=%d, backend=%s, attempt=%d, frame=%s", idx, name, attempt, frame.shape)
+                # Check if it's a dummy virtual camera (e.g. solid black)
+                variance = np.var(frame1)
+                if variance < 1.0:
+                    logger.warning("Camera(%d, %s) is a DUMMY/BLANK virtual camera (Variance: %.2f). Skipping.", idx, name, variance)
+                    cap.release()
+                    continue
+                    
+                # Check if it's a static image (e.g. OBS placeholder)
+                diff = cv2.absdiff(frame1, frame2)
+                noise_level = np.mean(diff)
+                if noise_level == 0.0:
+                    logger.warning("Camera(%d, %s) is a STATIC IMAGE virtual camera (Noise: 0.0). Skipping.", idx, name)
+                    cap.release()
+                    continue
+
+                logger.info("Camera VERIFIED LIVE: index=%d, backend=%s, frame=%s, variance=%.2f, noise=%.4f", idx, name, frame1.shape, variance, noise_level)
                 return cap
 
         # All indices/backends failed this round — backoff and retry

@@ -39,7 +39,7 @@ EMBEDDINGS_PATH = "embeddings.pkl"
 # --- Vision and Hand Gesture Tracking ---
 VIRTUAL_MOUSE_SMOOTHING = 0.15
 PINCH_THRESHOLD = 0.04
-VIRTUAL_MOUSE_CAMERA_INDEX = int(os.getenv("VIRTUAL_MOUSE_CAMERA_INDEX", "1"))  # 0=projector, 1=laptop webcam
+VIRTUAL_MOUSE_CAMERA_INDEX = int(os.getenv("VIRTUAL_MOUSE_CAMERA_INDEX", "2"))  # 0=projector, 1=laptop webcam
 VIRTUAL_MOUSE_FRAME_WIDTH = int(os.getenv("VIRTUAL_MOUSE_FRAME_WIDTH", "960"))
 VIRTUAL_MOUSE_FRAME_HEIGHT = int(os.getenv("VIRTUAL_MOUSE_FRAME_HEIGHT", "540"))
 VIRTUAL_MOUSE_ACTIVE_BORDER = float(os.getenv("VIRTUAL_MOUSE_ACTIVE_BORDER", "0.12"))
