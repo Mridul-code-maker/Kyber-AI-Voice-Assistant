@@ -1,5 +1,5 @@
 """
-gesture_controller.py — Background gesture recognition daemon for Kyber.
+gesture_controller.py — Background gesture recognition daemon for Kira.
 
 Runs as a daemon thread. Uses MediaPipe Hands to detect gestures:
   - Open palm   → Toggle listening
@@ -101,9 +101,23 @@ def _gesture_worker():
     gesture_cooldown = 0.0  # Prevent rapid-fire duplicate gestures
 
     try:
-        cap = cv2.VideoCapture(VIRTUAL_MOUSE_CAMERA_INDEX)
-        if not cap.isOpened():
-            logger.warning("Webcam not available; gesture control disabled.")
+        # Try configured camera index first, then alternatives
+        indices_to_try = [VIRTUAL_MOUSE_CAMERA_INDEX]
+        for alt in [0, 1, 2]:
+            if alt not in indices_to_try:
+                indices_to_try.append(alt)
+
+        for idx in indices_to_try:
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                logger.info("Gesture camera opened on index %d.", idx)
+                break
+            cap.release()
+            cap = None
+            logger.debug("Gesture camera index %d unavailable, trying next...", idx)
+
+        if cap is None or not cap.isOpened():
+            logger.warning("No webcam available; gesture control disabled.")
             return
 
         with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7) as hands:

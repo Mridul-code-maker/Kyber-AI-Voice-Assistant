@@ -1,6 +1,15 @@
+"""
+hand_tracking.py — Virtual mouse control via hand tracking for Kira.
+
+Uses a background THREAD (not a separate process) to capture webcam frames
+and translate hand landmarks into mouse movements, clicks, drags, and scrolls.
+Threading is used because Windows multiprocessing (spawn mode) causes silent
+failures with OpenCV camera initialization in child processes.
+"""
+
 import math
-import multiprocessing
 import queue
+import threading
 import time
 import logging
 
@@ -25,9 +34,10 @@ pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0
 mp_hands = mp.solutions.hands
 
-_process = None
-_stop_event = None
-_status_queue = None
+# Global thread state
+_thread = None
+_stop_event = threading.Event()
+_status_queue = queue.Queue()
 
 
 def _count_extended_fingers(landmarks):
@@ -53,28 +63,81 @@ def _normalize_axis(value, border):
     return (value - border) / (1.0 - (2.0 * border))
 
 
-def _safe_queue_put(status_queue, payload):
-    if status_queue is None:
+def _hand_tracking_worker():
+    """
+    Main hand-tracking loop. Runs in a daemon thread.
+    Opens the camera, verifies it delivers real frames, then processes
+    hand landmarks to control the mouse cursor.
+    """
+    cap = None
+    MAX_OPEN_RETRIES = 3
+
+    indices_to_try = [VIRTUAL_MOUSE_CAMERA_INDEX]
+    for alt in [0, 1, 2]:
+        if alt not in indices_to_try:
+            indices_to_try.append(alt)
+
+    # --- Camera acquisition with retry and frame verification ---
+    for retry in range(MAX_OPEN_RETRIES):
+        if _stop_event.is_set():
+            return
+
+        for idx in indices_to_try:
+            for backend_name, backend_flag in [("DirectShow", cv2.CAP_DSHOW), ("default", None)]:
+                if backend_flag is not None:
+                    attempt = cv2.VideoCapture(idx, backend_flag)
+                else:
+                    attempt = cv2.VideoCapture(idx)
+
+                if not attempt.isOpened():
+                    attempt.release()
+                    logger.debug("Camera index %d (%s) failed isOpened on attempt %d.", idx, backend_name, retry + 1)
+                    continue
+
+                # Verify with a real frame read — isOpened() alone is unreliable on Windows
+                test_ok, test_frame = attempt.read()
+                if not test_ok or test_frame is None:
+                    logger.warning(
+                        "Camera index %d (%s) opened but test read failed on attempt %d.",
+                        idx, backend_name, retry + 1,
+                    )
+                    attempt.release()
+                    continue
+
+                cap = attempt
+                logger.info(
+                    "Camera VERIFIED on index %d (%s), attempt %d. Frame: %s",
+                    idx, backend_name, retry + 1, test_frame.shape,
+                )
+                break  # backend loop
+
+            if cap is not None:
+                break  # index loop
+
+        if cap is not None:
+            break  # retry loop
+
+        wait_seconds = 1.0 * (retry + 1)
+        logger.warning("All camera indices failed on attempt %d. Retrying in %.1fs...", retry + 1, wait_seconds)
+        time.sleep(wait_seconds)
+
+    if cap is None or not cap.isOpened():
+        msg = (
+            f"Could not open any webcam. Tried indices {indices_to_try} "
+            f"x {MAX_OPEN_RETRIES} retries. Check camera connections."
+        )
+        logger.error(msg)
+        _status_queue.put({"status": "error", "message": msg})
         return
-    try:
-        status_queue.put_nowait(payload)
-    except Exception:
-        pass
 
-
-def run_hand_tracking(stop_event: multiprocessing.Event, status_queue: multiprocessing.Queue):
-    cap = cv2.VideoCapture(VIRTUAL_MOUSE_CAMERA_INDEX, cv2.CAP_DSHOW)
-    if not cap.isOpened():
-        cap.release()
-        cap = cv2.VideoCapture(VIRTUAL_MOUSE_CAMERA_INDEX)
-
-    if not cap.isOpened():
-        _safe_queue_put(status_queue, {"status": "error", "message": "Could not open the webcam for virtual mouse control."})
-        return
-
+    # --- Configure camera ---
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, VIRTUAL_MOUSE_FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, VIRTUAL_MOUSE_FRAME_HEIGHT)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    # Warm-up: discard initial frames to let the camera auto-expose
+    for _ in range(5):
+        cap.read()
 
     screen_w, screen_h = pyautogui.size()
     prev_x = screen_w / 2
@@ -86,7 +149,9 @@ def run_hand_tracking(stop_event: multiprocessing.Event, status_queue: multiproc
     scroll_anchor_y = None
     last_seen = time.time()
 
-    _safe_queue_put(status_queue, {"status": "ready"})
+    # Signal that the camera is ready
+    _status_queue.put({"status": "ready"})
+    logger.info("Virtual mouse camera ready — entering tracking loop.")
 
     try:
         with mp_hands.Hands(
@@ -95,7 +160,7 @@ def run_hand_tracking(stop_event: multiprocessing.Event, status_queue: multiproc
             min_tracking_confidence=0.65,
             model_complexity=0,
         ) as hands:
-            while not stop_event.is_set():
+            while not _stop_event.is_set():
                 ret, frame = cap.read()
                 if not ret:
                     time.sleep(0.03)
@@ -170,58 +235,62 @@ def run_hand_tracking(stop_event: multiprocessing.Event, status_queue: multiproc
                         pyautogui.click()
                     pinch_active = False
     except Exception:
-        logger.error("Virtual mouse frame handling failed.", exc_info=True)
-        _safe_queue_put(status_queue, {"status": "error", "message": "Virtual mouse crashed while processing camera frames."})
+        logger.error("Virtual mouse tracking crashed.", exc_info=True)
     finally:
         if drag_active:
             try:
                 pyautogui.mouseUp()
             except Exception:
-                logger.debug("Failed to release mouse during virtual mouse shutdown.", exc_info=True)
+                pass
         cap.release()
-
-
-def _drain_status_queue():
-    updates = []
-    if _status_queue is None:
-        return updates
-    while True:
-        try:
-            updates.append(_status_queue.get_nowait())
-        except queue.Empty:
-            return updates
+        logger.info("Virtual mouse camera released.")
 
 
 def start_virtual_mouse():
-    global _process, _stop_event, _status_queue
+    """Starts the virtual mouse in a background daemon thread."""
+    global _thread
 
     from ui.status_manager import status_manager
 
-    if _process and _process.is_alive():
+    if _thread and _thread.is_alive():
         status_manager.set_virtual_mouse_active(True)
         status_manager.set_virtual_mouse_error("")
         logger.info("Virtual mouse already running.")
         return True, "Virtual mouse is already enabled."
 
-    _stop_event = multiprocessing.Event()
-    _status_queue = multiprocessing.Queue()
-    _process = multiprocessing.Process(
-        target=run_hand_tracking,
-        args=(_stop_event, _status_queue),
-        daemon=True,
-        name="virtual-mouse",
-    )
-    _process.start()
+    # If the gesture controller is holding the camera, release it first
+    try:
+        from gesture_controller import stop_gesture_daemon, _gesture_thread
+        if _gesture_thread and _gesture_thread.is_alive():
+            stop_gesture_daemon()
+            time.sleep(1.0)
+            logger.info("Paused gesture daemon to free camera for virtual mouse.")
+    except Exception:
+        logger.debug("Could not check/stop gesture daemon.", exc_info=True)
 
-    deadline = time.time() + 3.0
-    while time.time() < deadline:
-        if _process is not None and not _process.is_alive():
+    # Clear previous state
+    _stop_event.clear()
+    # Drain any stale messages from a previous run
+    while not _status_queue.empty():
+        try:
+            _status_queue.get_nowait()
+        except queue.Empty:
             break
-        for update in _drain_status_queue():
+
+    _thread = threading.Thread(target=_hand_tracking_worker, daemon=True, name="virtual-mouse")
+    _thread.start()
+
+    # Wait for the camera to initialize (up to 10s to account for retries)
+    deadline = time.time() + 10.0
+    while time.time() < deadline:
+        if _thread is not None and not _thread.is_alive():
+            break
+        try:
+            update = _status_queue.get(timeout=0.1)
             if update.get("status") == "ready":
                 status_manager.set_virtual_mouse_active(True)
                 status_manager.set_virtual_mouse_error("")
-                logger.info("Virtual mouse started.")
+                logger.info("Virtual mouse started successfully.")
                 return True, (
                     "Virtual mouse enabled. Move your index finger to steer, pinch index and thumb to click, "
                     "hold the pinch to drag, and use two fingers to scroll."
@@ -231,38 +300,30 @@ def start_virtual_mouse():
                 message = update.get("message", "Virtual mouse failed to start.")
                 status_manager.set_virtual_mouse_error(message)
                 return False, message
-        time.sleep(0.05)
+        except queue.Empty:
+            continue
 
-    if _process is not None and _process.is_alive():
-        status_manager.set_virtual_mouse_active(True)
-        status_manager.set_virtual_mouse_error("")
-        logger.info("Virtual mouse started without ready signal.")
-        return True, (
-            "Virtual mouse enabled. Move your index finger to steer, pinch index and thumb to click, "
-            "hold the pinch to drag, and use two fingers to scroll."
-        )
+    # Timeout — no ready signal received
+    if _thread is not None and _thread.is_alive():
+        logger.warning("Virtual mouse thread alive but no ready signal after 10s — stopping.")
+        stop_virtual_mouse()
 
     stop_virtual_mouse()
-    message = "Virtual mouse failed to start."
+    message = "Virtual mouse failed to start — camera could not be initialized."
     status_manager.set_virtual_mouse_error(message)
     return False, message
 
 
 def stop_virtual_mouse():
-    global _process, _stop_event, _status_queue
+    """Signals the virtual mouse thread to stop and waits for cleanup."""
+    global _thread
 
     from ui.status_manager import status_manager
 
-    if _stop_event is not None:
-        _stop_event.set()
-    if _process is not None:
-        _process.join(timeout=3)
-        if _process.is_alive():
-            _process.kill()
-            _process.join(timeout=2)
-    _process = None
-    _stop_event = None
-    _status_queue = None
+    _stop_event.set()
+    if _thread is not None:
+        _thread.join(timeout=5)
+    _thread = None
     status_manager.set_virtual_mouse_active(False)
     status_manager.set_virtual_mouse_error("")
     logger.info("Virtual mouse stopped.")
